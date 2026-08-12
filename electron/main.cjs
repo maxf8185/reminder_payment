@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
 const { initDb } = require('./db.cjs');
 const repo = require('./repositories.cjs');
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = !app.isPackaged;
 
 let mainWindow;
 
