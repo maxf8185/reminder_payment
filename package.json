@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "author": "MaxF8",
+  "description": "Reminder Payment App",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
