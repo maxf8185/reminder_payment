@@ -33,6 +33,7 @@ jobs:
         run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --dns-result-order=ipv4first
 
       - name: Build Electron App (macOS)
         if: matrix.os == 'macos-latest'
