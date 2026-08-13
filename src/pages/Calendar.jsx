@@ -3,7 +3,6 @@ import { format, startOfWeek, addDays, startOfMonth, endOfMonth, isSameMonth, is
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [lessons, setLessons] = useState([]);
   const [students, setStudents] = useState([]);
 
   useEffect(() => {

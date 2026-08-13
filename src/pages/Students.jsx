@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
 import StudentProfile from './StudentProfile';
 

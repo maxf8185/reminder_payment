@@ -17,6 +17,7 @@ export default function Notifications() {
 
   useEffect(() => {
     loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const handleMarkRead = async (id) => {

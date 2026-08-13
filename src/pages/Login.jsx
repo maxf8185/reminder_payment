@@ -11,7 +11,7 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(username, password);
-    } catch (err) {
+    } catch (_err) {
       setError('Invalid username or password');
     }
   };

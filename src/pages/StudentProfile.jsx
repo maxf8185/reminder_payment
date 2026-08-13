@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, Plus, Calendar as CalendarIcon, CreditCard, Edit, Save, X } from 'lucide-react';
+import { ArrowLeft, CreditCard, Edit, Save } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function StudentProfile({ studentId, onBack }) {
@@ -47,6 +47,7 @@ export default function StudentProfile({ studentId, onBack }) {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId]);
 
   async function handleAddPayment(e) {

@@ -1,5 +1,5 @@
 const { db } = require('./db.cjs');
-const { parse, addDays, isBefore, startOfDay, getDay, format } = require('date-fns');
+const { addDays, startOfDay, getDay, format } = require('date-fns');
 const { v4: uuidv4 } = require('uuid');
 
 // Auth & Users
@@ -177,7 +177,7 @@ function completeLesson(studentId, packageId, date, startTime, endTime, comment,
       const existingNotif = db.prepare("SELECT id FROM Notification WHERE reference_id = ? AND status = 'UNREAD' AND type = 'PAYMENT_REQUIRED'").get(studentId);
       if (!existingNotif) {
         const studentInfo = db.prepare("SELECT first_name, last_name FROM Student WHERE id = ?").get(studentId);
-        const msg = \`\${studentInfo.first_name} \${studentInfo.last_name} has completed \${pkg.total_lessons} lessons.\`;
+        const msg = `${studentInfo.first_name} ${studentInfo.last_name} has completed ${pkg.total_lessons} lessons.`;
         createNotification.run(uuidv4(), msg, studentId);
       }
     }

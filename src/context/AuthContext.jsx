@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
         try {
           const user = await window.electronAPI.getCurrentUser();
           setCurrentUser(user);
-        } catch (e) {
+        } catch (_e) {
           setCurrentUser(null);
         }
       }

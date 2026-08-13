@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { AlertCircle, Clock, CheckCircle, Users as UsersIcon, Calendar } from 'lucide-react';
+import { AlertCircle, Users as UsersIcon, Calendar } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function Dashboard() {

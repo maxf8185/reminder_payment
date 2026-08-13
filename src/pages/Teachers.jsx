@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { Plus, Edit, Save, X } from 'lucide-react';
+import { Plus, Edit, Save } from 'lucide-react';
 
 export default function Teachers() {
   const { currentUser } = useContext(AuthContext);
@@ -20,6 +20,7 @@ export default function Teachers() {
 
   useEffect(() => {
     loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const handleSubmit = async (e) => {

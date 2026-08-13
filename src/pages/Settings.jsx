@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon, Database, Monitor } from 'lucide-react';
+import { Database, Monitor } from 'lucide-react';
 
 export default function Settings() {
   return (

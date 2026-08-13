@@ -85,7 +85,7 @@ function initDb() {
   for (const m of migrations) {
     try {
       db.exec(m);
-    } catch (e) {
+    } catch (_e) {
       // Column might already exist
     }
   }
