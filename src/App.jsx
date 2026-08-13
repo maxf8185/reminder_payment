@@ -1,11 +1,23 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import { AuthContext } from './context/AuthContext';
+import Login from './pages/Login';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import Calendar from './pages/Calendar';
+import Payments from './pages/Payments';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+import Notifications from './pages/Notifications';
+import Teachers from './pages/Teachers';
 
 function App() {
+  const { currentUser } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  if (!currentUser) {
+    return <Login />;
+  }
 
   return (
     <div className="app-container">
@@ -14,13 +26,11 @@ function App() {
         {activeTab === 'dashboard' && <Dashboard />}
         {activeTab === 'students' && <Students />}
         {activeTab === 'calendar' && <Calendar />}
-        {/* Placeholder for others */}
-        {['payments', 'reports', 'settings'].includes(activeTab) && (
-          <div>
-            <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
-            <p className="text-muted">This page is under construction.</p>
-          </div>
-        )}
+        {activeTab === 'payments' && <Payments />}
+        {activeTab === 'reports' && <Reports />}
+        {activeTab === 'settings' && <Settings />}
+        {activeTab === 'notifications' && <Notifications />}
+        {activeTab === 'teachers' && <Teachers />}
       </div>
     </div>
   );

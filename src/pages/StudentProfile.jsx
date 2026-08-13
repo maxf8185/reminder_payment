@@ -1,22 +1,53 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Calendar as CalendarIcon, CreditCard } from 'lucide-react';
+import { useState, useEffect, useContext } from 'react';
+import { ArrowLeft, Plus, Calendar as CalendarIcon, CreditCard, Edit, Save, X } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 export default function StudentProfile({ studentId, onBack }) {
+  const { currentUser } = useContext(AuthContext);
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Payment Form
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentData, setPaymentData] = useState({
     totalLessons: 5, price: 100, paymentDate: new Date().toISOString().split('T')[0], startDate: new Date().toISOString().split('T')[0]
   });
 
+  // Edit Mode
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [teachers, setTeachers] = useState([]);
+
   async function loadData() {
     if (window.electronAPI) {
-      const data = await window.electronAPI.getStudent(studentId);
-      const calc = await window.electronAPI.calculateNextPayment(studentId);
-      setStudent({ ...data, paymentStatus: calc });
+      try {
+        const data = await window.electronAPI.getStudent(studentId);
+        const calc = await window.electronAPI.calculateNextPayment(studentId);
+        setStudent({ ...data, paymentStatus: calc });
+        setEditData({
+          firstName: data.first_name,
+          lastName: data.last_name,
+          level: data.level || '',
+          studentPhone: data.student_phone || '',
+          parentPhone: data.parent_phone || '',
+          contractNumber: data.contract_number || '',
+          teacherId: data.teacher_id || ''
+        });
+
+        if (currentUser?.role === 'ADMIN') {
+          const t = await window.electronAPI.getUsers();
+          setTeachers(t.filter(u => u.role === 'TEACHER'));
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
     setLoading(false);
   }
+
+  useEffect(() => {
+    loadData();
+  }, [studentId]);
 
   async function handleAddPayment(e) {
     e.preventDefault();
@@ -34,14 +65,18 @@ export default function StudentProfile({ studentId, onBack }) {
   }
 
   async function handleCompleteLesson() {
-    if (!activePackage) return;
+    const activePackage = student.packages.find(p => p.status === 'Active');
+    if (!activePackage) {
+      alert("No active payment cycle!");
+      return;
+    }
     if (window.electronAPI) {
       const today = new Date().toISOString().split('T')[0];
       await window.electronAPI.completeLesson({
         studentId,
         packageId: activePackage.id,
         date: today,
-        startTime: '18:00', // Mock time for now
+        startTime: '18:00',
         endTime: '19:00',
         comment: ''
       });
@@ -49,122 +84,179 @@ export default function StudentProfile({ studentId, onBack }) {
     }
   }
 
-  useEffect(() => {
-    loadData();
-  }, [studentId]);
+  async function handleSaveEdit() {
+    if (window.electronAPI) {
+      await window.electronAPI.updateStudent(studentId, {
+        ...student,
+        firstName: editData.firstName,
+        lastName: editData.lastName,
+        level: editData.level,
+        studentPhone: editData.studentPhone,
+        parentPhone: editData.parentPhone,
+        contractNumber: editData.contractNumber,
+        teacherId: editData.teacherId
+      });
+      setEditMode(false);
+      loadData();
+    }
+  }
 
   if (loading) return <div>Loading...</div>;
-  if (!student) return <div>Student not found</div>;
+  if (!student) return <div>Student not found or access denied.</div>;
 
-  const activePackage = student.packages.find(p => p.status === 'Active');
+  const activePackage = student.packages.find(p => p.status === 'Active' || p.status === 'PAYMENT_REQUIRED');
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-        <button className="btn btn-secondary" onClick={onBack} style={{ padding: '8px' }}>
-          <ArrowLeft size={16} />
-        </button>
-        <h1 style={{ margin: 0 }}>{student.first_name} {student.last_name}</h1>
-        <span className={`badge ${student.status === 'Active' ? 'badge-success' : 'badge-warning'}`}>
-          {student.status}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <button className="btn btn-secondary" onClick={onBack} style={{ padding: '8px' }}>
+            <ArrowLeft size={16} />
+          </button>
+          <h1 style={{ margin: 0 }}>{student.first_name} {student.last_name}</h1>
+          <span className={`badge ${student.status === 'Active' ? 'badge-success' : 'badge-warning'}`}>
+            {student.status}
+          </span>
+        </div>
+        
+        {isAdmin && !editMode && (
+          <button className="btn btn-secondary" onClick={() => setEditMode(true)}>
+            <Edit size={16} /> Edit Profile
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3" style={{ marginBottom: 32 }}>
         <div className="card" style={{ gridColumn: 'span 2' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <h2>Active Package</h2>
-            <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setShowPaymentForm(!showPaymentForm)}>
-              <CreditCard size={14} /> {showPaymentForm ? 'Cancel' : 'Add Payment'}
-            </button>
-          </div>
-
-          {showPaymentForm && (
-            <div style={{ marginBottom: 24, padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid var(--panel-border)' }}>
-              <h3 style={{ marginBottom: 16, fontSize: 16 }}>New Payment</h3>
-              <form onSubmit={handleAddPayment} className="grid grid-cols-2">
+          {editMode ? (
+            <div style={{ padding: 16, border: '1px solid var(--panel-border)', borderRadius: 8 }}>
+              <h3>Edit Profile</h3>
+              <div className="grid grid-cols-2">
                 <div className="form-group">
-                  <label className="form-label">Number of Lessons</label>
-                  <input type="number" required className="form-control" value={paymentData.totalLessons} onChange={e => setPaymentData({...paymentData, totalLessons: e.target.value})} />
+                  <label className="form-label">First Name</label>
+                  <input type="text" className="form-control" value={editData.firstName} onChange={e => setEditData({...editData, firstName: e.target.value})} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Price (€)</label>
-                  <input type="number" step="0.01" required className="form-control" value={paymentData.price} onChange={e => setPaymentData({...paymentData, price: e.target.value})} />
+                  <label className="form-label">Last Name</label>
+                  <input type="text" className="form-control" value={editData.lastName} onChange={e => setEditData({...editData, lastName: e.target.value})} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Payment Date</label>
-                  <input type="date" required className="form-control" value={paymentData.paymentDate} onChange={e => setPaymentData({...paymentData, paymentDate: e.target.value})} />
+                  <label className="form-label">Level</label>
+                  <input type="text" className="form-control" value={editData.level} onChange={e => setEditData({...editData, level: e.target.value})} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Package Start Date</label>
-                  <input type="date" required className="form-control" value={paymentData.startDate} onChange={e => setPaymentData({...paymentData, startDate: e.target.value})} />
+                  <label className="form-label">Contract Number</label>
+                  <input type="text" className="form-control" value={editData.contractNumber} onChange={e => setEditData({...editData, contractNumber: e.target.value})} />
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <button type="submit" className="btn btn-primary">Save Payment</button>
+                <div className="form-group">
+                  <label className="form-label">Student Phone</label>
+                  <input type="text" className="form-control" value={editData.studentPhone} onChange={e => setEditData({...editData, studentPhone: e.target.value})} />
                 </div>
-              </form>
-            </div>
-          )}
-          
-          {activePackage ? (
-            <div className="grid grid-cols-3" style={{ gap: 16 }}>
-              <div>
-                <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Total Lessons</div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{activePackage.total_lessons}</div>
-              </div>
-              <div>
-                <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Used</div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{activePackage.used_lessons}</div>
-              </div>
-              <div>
-                <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Remaining</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-color)' }}>
-                  {activePackage.total_lessons - activePackage.used_lessons}
+                <div className="form-group">
+                  <label className="form-label">Parent Phone</label>
+                  <input type="text" className="form-control" value={editData.parentPhone} onChange={e => setEditData({...editData, parentPhone: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Teacher</label>
+                  <select className="form-control" value={editData.teacherId} onChange={e => setEditData({...editData, teacherId: e.target.value})}>
+                    <option value="">No Teacher</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
                 </div>
               </div>
-              <div style={{ gridColumn: 'span 3', marginTop: 16 }}>
-                <button className="btn btn-secondary" onClick={handleCompleteLesson}>
-                  Mark Lesson as Completed
-                </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                <button className="btn btn-primary" onClick={handleSaveEdit}><Save size={16} /> Save</button>
+                <button className="btn btn-secondary" onClick={() => setEditMode(false)}>Cancel</button>
               </div>
             </div>
           ) : (
-            <div className="text-muted">No active package. Add a payment to create one.</div>
-          )}
-
-          {student.paymentStatus && (
-            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--panel-border)' }}>
-              <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Expected Next Payment</div>
-              <div style={{ fontWeight: 600, color: student.paymentStatus.status === 'OVERDUE' ? 'var(--danger-color)' : student.paymentStatus.status === 'DUE_SOON' ? 'var(--warning-color)' : 'var(--text-main)' }}>
-                {student.paymentStatus.expectedDate || 'Unknown'} 
-                <span className="badge" style={{ marginLeft: 8 }}>{student.paymentStatus.status}</span>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <h2>Payment Cycle Information</h2>
+                {isAdmin && (
+                  <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setShowPaymentForm(!showPaymentForm)}>
+                    <CreditCard size={14} /> {showPaymentForm ? 'Cancel' : 'Add Payment'}
+                  </button>
+                )}
               </div>
+
+              {showPaymentForm && isAdmin && (
+                <div style={{ marginBottom: 24, padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid var(--panel-border)' }}>
+                  <h3 style={{ marginBottom: 16, fontSize: 16 }}>New Payment</h3>
+                  <form onSubmit={handleAddPayment} className="grid grid-cols-2">
+                    <div className="form-group">
+                      <label className="form-label">Lessons in Cycle</label>
+                      <input type="number" required className="form-control" value={paymentData.totalLessons} onChange={e => setPaymentData({...paymentData, totalLessons: e.target.value})} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Price</label>
+                      <input type="number" step="0.01" required className="form-control" value={paymentData.price} onChange={e => setPaymentData({...paymentData, price: e.target.value})} />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <button type="submit" className="btn btn-primary">Record Payment</button>
+                    </div>
+                  </form>
+                </div>
+              )}
+              
+              {activePackage ? (
+                <div className="grid grid-cols-3" style={{ gap: 16 }}>
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Cycle Length</div>
+                    <div style={{ fontSize: 24, fontWeight: 700 }}>{activePackage.total_lessons}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Completed</div>
+                    <div style={{ fontSize: 24, fontWeight: 700 }}>{activePackage.used_lessons}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Status</div>
+                    <div>
+                      {activePackage.status === 'PAYMENT_REQUIRED' ? (
+                        <span className="badge badge-danger">Payment Required</span>
+                      ) : (
+                        <span className="badge badge-success">Active</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ gridColumn: 'span 3', marginTop: 16 }}>
+                    <button className="btn btn-secondary" onClick={handleCompleteLesson} disabled={activePackage.status === 'PAYMENT_REQUIRED'}>
+                      Mark Lesson as Completed
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-muted">No active payment cycle. {isAdmin && "Add a payment to create one."}</div>
+              )}
             </div>
           )}
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2>Schedule</h2>
-            <button className="btn btn-secondary" style={{ padding: '4px', border: 'none' }}>
-              <Plus size={16} />
-            </button>
-          </div>
-          {student.schedules.length === 0 ? (
-            <p className="text-muted">No schedule added.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {student.schedules.map(s => {
-                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                return (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 6 }}>
-                    <CalendarIcon size={14} className="text-muted" />
-                    <span>{days[s.day_of_week === 7 ? 0 : s.day_of_week]} at {s.time}</span>
-                  </div>
-                );
-              })}
+          <h2>Student Details</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div className="text-muted" style={{ fontSize: 12 }}>Level</div>
+              <div>{student.level || '-'}</div>
             </div>
-          )}
+            <div>
+              <div className="text-muted" style={{ fontSize: 12 }}>Teacher</div>
+              <div>{student.teacher_name || '-'}</div>
+            </div>
+            <div>
+              <div className="text-muted" style={{ fontSize: 12 }}>Contract</div>
+              <div>{student.contract_number || '-'}</div>
+            </div>
+            <div>
+              <div className="text-muted" style={{ fontSize: 12 }}>Student Phone</div>
+              <div>{student.student_phone || '-'}</div>
+            </div>
+            <div>
+              <div className="text-muted" style={{ fontSize: 12 }}>Parent Phone</div>
+              <div>{student.parent_phone || '-'}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -200,7 +292,7 @@ export default function StudentProfile({ studentId, onBack }) {
                   {student.packages.map(p => (
                     <tr key={p.id}>
                       <td>{p.payment_date}</td>
-                      <td>€{p.price}</td>
+                      <td>{p.price}</td>
                       <td className="text-muted">{p.total_lessons} lessons</td>
                     </tr>
                   ))}
