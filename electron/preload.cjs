@@ -25,6 +25,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteLesson: (lessonId) => ipcRenderer.invoke('delete-lesson', lessonId),
   markInvoiceSent: (packageId) => ipcRenderer.invoke('mark-invoice-sent', packageId),
   calculateNextPayment: (studentId) => ipcRenderer.invoke('calculate-next-payment', studentId),
+  
+  // Schedules
+  getSchedules: (studentId) => ipcRenderer.invoke('get-schedules', studentId),
+  setSchedules: (studentId, schedules) => ipcRenderer.invoke('set-schedules', studentId, schedules),
+  getAllSchedules: () => ipcRenderer.invoke('get-all-schedules'),
+
   getAllPackages: () => ipcRenderer.invoke('get-all-packages'),
   getAllLessons: () => ipcRenderer.invoke('get-all-lessons'),
   getGlobalPaymentRequiredList: () => ipcRenderer.invoke('get-global-payment-required-list'),
@@ -32,5 +38,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Notifications & Stats
   getNotifications: () => ipcRenderer.invoke('get-notifications'),
   markNotificationRead: (id) => ipcRenderer.invoke('mark-notification-read', id),
-  getStats: () => ipcRenderer.invoke('get-stats')
+  getStats: () => ipcRenderer.invoke('get-stats'),
+  
+  // Import/Export
+  exportExcel: () => ipcRenderer.invoke('export-excel'),
+  importExcel: () => ipcRenderer.invoke('import-excel')
 });

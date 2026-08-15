@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { AlertCircle, Users as UsersIcon, Calendar, Filter } from 'lucide-react';
+import { AlertCircle, Users as UsersIcon, Calendar, Filter, Download, Upload } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function Dashboard() {
@@ -35,6 +35,29 @@ export default function Dashboard() {
 
   if (loading) return <div>Loading...</div>;
 
+  const handleExport = async () => {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.exportExcel();
+      if (res.success) alert(`Exported to ${res.filePath}`);
+    }
+  };
+
+  const handleImport = async () => {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.importExcel();
+      if (res.success) {
+        alert(`Imported ${res.imported} students successfully!`);
+        // Reload data
+        const globalStats = await window.electronAPI.getStats();
+        const prList = await window.electronAPI.getGlobalPaymentRequiredList();
+        const allStudents = await window.electronAPI.getStudents();
+        setStats(globalStats);
+        setPaymentRequiredList(prList);
+        setStudents(allStudents);
+      }
+    }
+  };
+
   if (currentUser?.role === 'ADMIN') {
     const displayedStudents = selectedTeacher 
       ? students.filter(s => s.teacher_id === selectedTeacher) 
@@ -45,7 +68,13 @@ export default function Dashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Filter size={16} className="text-muted" />
+            <button className="btn btn-secondary" onClick={handleExport} title="Export Students to Excel" style={{ padding: '6px 12px' }}>
+              <Download size={16} />
+            </button>
+            <button className="btn btn-secondary" onClick={handleImport} title="Import Students from Excel" style={{ padding: '6px 12px' }}>
+              <Upload size={16} />
+            </button>
+            <Filter size={16} className="text-muted" style={{ marginLeft: 16 }} />
             <select 
               className="form-control" 
               style={{ width: 250, marginBottom: 0 }}

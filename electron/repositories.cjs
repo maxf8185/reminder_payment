@@ -282,6 +282,30 @@ function getAllLessons() {
     ORDER BY l.date DESC
   `).all();
 }
+// Schedules
+function getSchedules(studentId) {
+  return db.prepare("SELECT * FROM Schedule WHERE student_id = ? ORDER BY day_of_week ASC").all(studentId);
+}
+
+function setSchedules(studentId, schedules) {
+  const transaction = db.transaction(() => {
+    db.prepare("DELETE FROM Schedule WHERE student_id = ?").run(studentId);
+    const insert = db.prepare("INSERT INTO Schedule (id, student_id, day_of_week, time) VALUES (?, ?, ?, ?)");
+    for (const sch of schedules) {
+      insert.run(uuidv4(), studentId, sch.day_of_week, sch.time);
+    }
+  });
+  transaction();
+}
+
+function getAllSchedules() {
+  return db.prepare(`
+    SELECT sch.*, s.first_name, s.last_name, s.teacher_id
+    FROM Schedule sch
+    JOIN Student s ON sch.student_id = s.id
+    WHERE s.status = 'Active'
+  `).all();
+}
 
 function getGlobalPaymentRequiredList() {
   return db.prepare(`
@@ -330,6 +354,9 @@ module.exports = {
   calculateNextPaymentDate,
   getAllPackages,
   getAllLessons,
+  getSchedules,
+  setSchedules,
+  getAllSchedules,
   getGlobalPaymentRequiredList,
   getNotifications,
   markNotificationRead,

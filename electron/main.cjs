@@ -1,4 +1,6 @@
-const { app, BrowserWindow, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, dialog } = require('electron');
+const fs = require('fs');
+const xlsx = require('xlsx');
 const path = require('path');
 const { initDb } = require('./db.cjs');
 const repo = require('./repositories.cjs');
@@ -143,6 +145,21 @@ ipcMain.handle('calculate-next-payment', (event, studentId) => {
   checkAuth();
   return repo.calculateNextPaymentDate(studentId);
 });
+
+// Schedules IPC
+ipcMain.handle('get-schedules', (event, studentId) => {
+  checkAuth();
+  return repo.getSchedules(studentId);
+});
+ipcMain.handle('set-schedules', (event, studentId, schedules) => {
+  checkAdmin();
+  return repo.setSchedules(studentId, schedules);
+});
+ipcMain.handle('get-all-schedules', () => {
+  checkAuth();
+  return repo.getAllSchedules();
+});
+
 ipcMain.handle('get-all-packages', () => {
   checkAdmin();
   return repo.getAllPackages();
@@ -167,4 +184,60 @@ ipcMain.handle('mark-notification-read', (event, id) => {
 ipcMain.handle('get-stats', () => {
   checkAdmin();
   return repo.getStats();
+});
+
+// Excel IPC
+ipcMain.handle('export-excel', async () => {
+  checkAdmin();
+  const { filePath } = await dialog.showSaveDialog({
+    title: 'Export Students',
+    defaultPath: 'students.xlsx',
+    filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+  });
+  
+  if (filePath) {
+    const students = repo.getStudents(currentUser.id, 'ADMIN');
+    const ws = xlsx.utils.json_to_sheet(students);
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, "Students");
+    xlsx.writeFile(wb, filePath);
+    return { success: true, filePath };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('import-excel', async () => {
+  checkAdmin();
+  const { filePaths } = await dialog.showOpenDialog({
+    title: 'Import Students',
+    properties: ['openFile'],
+    filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }]
+  });
+
+  if (filePaths && filePaths.length > 0) {
+    const wb = xlsx.readFile(filePaths[0]);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json(ws);
+    
+    let imported = 0;
+    for (const row of data) {
+      if (row.first_name && row.last_name) {
+        repo.createStudent({
+          firstName: row.first_name,
+          lastName: row.last_name,
+          phone: row.phone || '',
+          email: row.email || '',
+          comment: row.comment || '',
+          teacherId: row.teacher_id || null,
+          studentPhone: row.student_phone || '',
+          parentPhone: row.parent_phone || '',
+          level: row.level || '',
+          contractNumber: row.contract_number || ''
+        });
+        imported++;
+      }
+    }
+    return { success: true, imported };
+  }
+  return { success: false };
 });

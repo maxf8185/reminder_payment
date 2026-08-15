@@ -16,17 +16,19 @@ export default function StudentProfile({ studentId, onBack }) {
   // Lesson Form
   const [lessonDate, setLessonDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Edit Mode
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({});
   const [teachers, setTeachers] = useState([]);
+  const [schedules, setSchedules] = useState([]);
 
   async function loadData() {
     if (window.electronAPI) {
       try {
         const data = await window.electronAPI.getStudent(studentId);
         const calc = await window.electronAPI.calculateNextPayment(studentId);
+        const sch = await window.electronAPI.getSchedules(studentId);
         setStudent({ ...data, paymentStatus: calc });
+        setSchedules(sch);
         setEditData({
           firstName: data.first_name,
           lastName: data.last_name,
@@ -35,7 +37,8 @@ export default function StudentProfile({ studentId, onBack }) {
           parentPhone: data.parent_phone || '',
           contractNumber: data.contract_number || '',
           teacherId: data.teacher_id || '',
-          status: data.status || 'Active'
+          status: data.status || 'Active',
+          schedules: sch || []
         });
 
         if (currentUser?.role === 'ADMIN') {
@@ -121,6 +124,7 @@ export default function StudentProfile({ studentId, onBack }) {
         teacherId: editData.teacherId,
         status: editData.status
       });
+      await window.electronAPI.setSchedules(studentId, editData.schedules);
       setEditMode(false);
       loadData();
     }
@@ -196,6 +200,39 @@ export default function StudentProfile({ studentId, onBack }) {
                 <div className="form-group">
                   <label className="form-label">Parent Phone</label>
                   <input type="text" className="form-control" value={editData.parentPhone} onChange={e => setEditData({...editData, parentPhone: e.target.value})} />
+                </div>
+                
+                <div className="form-group" style={{ gridColumn: 'span 2', marginTop: 16 }}>
+                  <label className="form-label">Weekly Schedule</label>
+                  {editData.schedules.map((sch, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                      <select className="form-control" style={{ marginBottom: 0 }} value={sch.day_of_week} onChange={e => {
+                        const newSch = [...editData.schedules];
+                        newSch[i].day_of_week = parseInt(e.target.value);
+                        setEditData({...editData, schedules: newSch});
+                      }}>
+                        <option value={1}>Monday</option>
+                        <option value={2}>Tuesday</option>
+                        <option value={3}>Wednesday</option>
+                        <option value={4}>Thursday</option>
+                        <option value={5}>Friday</option>
+                        <option value={6}>Saturday</option>
+                        <option value={0}>Sunday</option>
+                      </select>
+                      <input type="time" className="form-control" style={{ marginBottom: 0 }} value={sch.time} onChange={e => {
+                        const newSch = [...editData.schedules];
+                        newSch[i].time = e.target.value;
+                        setEditData({...editData, schedules: newSch});
+                      }} />
+                      <button className="btn btn-secondary" onClick={() => {
+                        const newSch = editData.schedules.filter((_, idx) => idx !== i);
+                        setEditData({...editData, schedules: newSch});
+                      }}><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                  <button className="btn btn-secondary" onClick={() => {
+                    setEditData({...editData, schedules: [...editData.schedules, { day_of_week: 1, time: '18:00' }]});
+                  }}>+ Add Schedule</button>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
@@ -306,6 +343,15 @@ export default function StudentProfile({ studentId, onBack }) {
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>Parent Phone</div>
               <div>{student.parent_phone || '-'}</div>
+            </div>
+            <div>
+              <div className="text-muted" style={{ fontSize: 12 }}>Schedule</div>
+              <div>
+                {schedules.length > 0 ? schedules.map((s, i) => {
+                  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                  return <div key={i}>{days[s.day_of_week]} at {s.time}</div>;
+                }) : '-'}
+              </div>
             </div>
           </div>
         </div>
