@@ -1,6 +1,20 @@
-import { Database, Monitor } from 'lucide-react';
+import { Database, Monitor, Download, Upload } from 'lucide-react';
 
 export default function Settings() {
+  const handleExport = async () => {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.exportExcel();
+      if (res.success) alert(`Exported to ${res.filePath}`);
+    }
+  };
+
+  const handleImport = async () => {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.importExcel();
+      if (res.success) alert(`Imported ${res.imported} students successfully!`);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -25,6 +39,7 @@ export default function Settings() {
             <select className="form-control" defaultValue="en">
               <option value="en">English</option>
               <option value="uk">Ukrainian (Coming Soon)</option>
+              <option value="sk">Slovak (Coming Soon)</option>
             </select>
           </div>
           <button className="btn btn-primary" style={{ marginTop: 16 }}>Save Preferences</button>
@@ -39,8 +54,12 @@ export default function Settings() {
             Manage your application data, create backups, or reset the database.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <button className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>Export Data Backup</button>
-            <button className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>Import Data Backup</button>
+            <button className="btn btn-secondary" style={{ justifyContent: 'flex-start' }} onClick={handleExport}>
+              <Download size={16} style={{ marginRight: 8 }} /> Export Students to Excel
+            </button>
+            <button className="btn btn-secondary" style={{ justifyContent: 'flex-start' }} onClick={handleImport}>
+              <Upload size={16} style={{ marginRight: 8 }} /> Import Students from Excel
+            </button>
             <div style={{ marginTop: 12, paddingTop: 16, borderTop: '1px solid var(--panel-border)' }}>
               <button className="btn" style={{ background: 'rgba(248, 81, 73, 0.1)', color: 'var(--danger-color)', border: '1px solid var(--danger-color)', width: '100%', justifyContent: 'center' }}>
                 Reset All Data
