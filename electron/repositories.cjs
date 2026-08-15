@@ -154,6 +154,12 @@ function completeLesson(studentId, packageId, date, startTime, endTime, comment,
     throw new Error('A lesson is already recorded for this student on this date.');
   }
 
+  // Package status check
+  const pkgCheck = db.prepare('SELECT status FROM LessonPackage WHERE id = ?').get(packageId);
+  if (!pkgCheck || pkgCheck.status !== 'Active') {
+    throw new Error('Access Denied: Payment cycle is not active.');
+  }
+
   const id = uuidv4();
   
   const insertLesson = db.prepare(`
@@ -198,7 +204,7 @@ function deleteLesson(lessonId, role) {
     throw new Error('Access Denied: Only administrators can delete recorded lessons.');
   }
 
-  const lesson = db.prepare('SELECT package_id FROM Lesson WHERE id = ?').get(lessonId);
+  const lesson = db.prepare('SELECT student_id, package_id FROM Lesson WHERE id = ?').get(lessonId);
   if (!lesson) return;
 
   const transaction = db.transaction(() => {
@@ -210,6 +216,7 @@ function deleteLesson(lessonId, role) {
       const pkg = db.prepare('SELECT total_lessons, used_lessons, status FROM LessonPackage WHERE id = ?').get(lesson.package_id);
       if (pkg && pkg.status === 'PAYMENT_REQUIRED' && pkg.used_lessons < pkg.total_lessons) {
         db.prepare("UPDATE LessonPackage SET status = 'Active' WHERE id = ?").run(lesson.package_id);
+        db.prepare("UPDATE Notification SET status = 'RESOLVED' WHERE reference_id = ? AND type = 'PAYMENT_REQUIRED' AND status = 'UNREAD'").run(lesson.student_id);
       }
     }
   });
@@ -283,7 +290,11 @@ function getAllLessons() {
   `).all();
 }
 // Schedules
-function getSchedules(studentId) {
+function getSchedules(studentId, userId, role) {
+  const student = db.prepare('SELECT teacher_id FROM Student WHERE id = ?').get(studentId);
+  if (role !== 'ADMIN' && student && student.teacher_id !== userId) {
+    throw new Error('Access Denied: Cannot view schedules of another teacher\'s student.');
+  }
   return db.prepare("SELECT * FROM Schedule WHERE student_id = ? ORDER BY day_of_week ASC").all(studentId);
 }
 

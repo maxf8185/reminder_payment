@@ -149,7 +149,7 @@ ipcMain.handle('calculate-next-payment', (event, studentId) => {
 // Schedules IPC
 ipcMain.handle('get-schedules', (event, studentId) => {
   checkAuth();
-  return repo.getSchedules(studentId);
+  return repo.getSchedules(studentId, currentUser.id, currentUser.role);
 });
 ipcMain.handle('set-schedules', (event, studentId, schedules) => {
   checkAdmin();
@@ -219,10 +219,16 @@ ipcMain.handle('import-excel', async () => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json(ws);
     
+    const allStudents = repo.getStudents(currentUser.id, 'ADMIN');
     let imported = 0;
     for (const row of data) {
       if (row.first_name && row.last_name) {
-        repo.createStudent({
+        const existing = allStudents.find(s => 
+          (row.contract_number && s.contract_number === row.contract_number.toString()) || 
+          (s.first_name === row.first_name && s.last_name === row.last_name)
+        );
+
+        const studentData = {
           firstName: row.first_name,
           lastName: row.last_name,
           phone: row.phone || '',
@@ -232,8 +238,15 @@ ipcMain.handle('import-excel', async () => {
           studentPhone: row.student_phone || '',
           parentPhone: row.parent_phone || '',
           level: row.level || '',
-          contractNumber: row.contract_number || ''
-        });
+          contractNumber: row.contract_number ? row.contract_number.toString() : '',
+          status: row.status || 'Active'
+        };
+
+        if (existing) {
+          repo.updateStudent(existing.id, studentData);
+        } else {
+          repo.createStudent(studentData);
+        }
         imported++;
       }
     }
