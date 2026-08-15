@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Packages & Lessons
   createPackage: (data) => ipcRenderer.invoke('create-package', data),
   completeLesson: (data) => ipcRenderer.invoke('complete-lesson', data),
+  deleteLesson: (lessonId) => ipcRenderer.invoke('delete-lesson', lessonId),
+  markInvoiceSent: (packageId) => ipcRenderer.invoke('mark-invoice-sent', packageId),
   calculateNextPayment: (studentId) => ipcRenderer.invoke('calculate-next-payment', studentId),
   getAllPackages: () => ipcRenderer.invoke('get-all-packages'),
   getAllLessons: () => ipcRenderer.invoke('get-all-lessons'),

@@ -148,6 +148,12 @@ function completeLesson(studentId, packageId, date, startTime, endTime, comment,
     throw new Error('Access Denied: Cannot mark lesson for another teacher\'s student.');
   }
 
+  // Double-count protection
+  const existingLesson = db.prepare('SELECT id FROM Lesson WHERE student_id = ? AND date = ?').get(studentId, date);
+  if (existingLesson) {
+    throw new Error('A lesson is already recorded for this student on this date.');
+  }
+
   const id = uuidv4();
   
   const insertLesson = db.prepare(`
@@ -185,6 +191,37 @@ function completeLesson(studentId, packageId, date, startTime, endTime, comment,
   
   transaction();
   return id;
+}
+
+function deleteLesson(lessonId, role) {
+  if (role !== 'ADMIN') {
+    throw new Error('Access Denied: Only administrators can delete recorded lessons.');
+  }
+
+  const lesson = db.prepare('SELECT package_id FROM Lesson WHERE id = ?').get(lessonId);
+  if (!lesson) return;
+
+  const transaction = db.transaction(() => {
+    db.prepare('DELETE FROM Lesson WHERE id = ?').run(lessonId);
+    if (lesson.package_id) {
+      db.prepare('UPDATE LessonPackage SET used_lessons = MAX(0, used_lessons - 1) WHERE id = ?').run(lesson.package_id);
+      
+      // If dropping below total lessons, revert PAYMENT_REQUIRED back to Active
+      const pkg = db.prepare('SELECT total_lessons, used_lessons, status FROM LessonPackage WHERE id = ?').get(lesson.package_id);
+      if (pkg && pkg.status === 'PAYMENT_REQUIRED' && pkg.used_lessons < pkg.total_lessons) {
+        db.prepare("UPDATE LessonPackage SET status = 'Active' WHERE id = ?").run(lesson.package_id);
+      }
+    }
+  });
+
+  transaction();
+}
+
+function markInvoiceSent(packageId, role) {
+  if (role !== 'ADMIN') {
+    throw new Error('Access Denied: Only administrators can manage invoices.');
+  }
+  db.prepare("UPDATE LessonPackage SET status = 'INVOICE_SENT' WHERE id = ?").run(packageId);
 }
 
 function calculateNextPaymentDate(studentId) {
@@ -288,6 +325,8 @@ module.exports = {
   updateStudent,
   createPackage,
   completeLesson,
+  deleteLesson,
+  markInvoiceSent,
   calculateNextPaymentDate,
   getAllPackages,
   getAllLessons,

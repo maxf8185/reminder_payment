@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { ArrowLeft, CreditCard, Edit, Save } from 'lucide-react';
+import { ArrowLeft, CreditCard, Edit, Save, Trash2, Send } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function StudentProfile({ studentId, onBack }) {
@@ -12,6 +12,9 @@ export default function StudentProfile({ studentId, onBack }) {
   const [paymentData, setPaymentData] = useState({
     totalLessons: 5, price: 100, paymentDate: new Date().toISOString().split('T')[0], startDate: new Date().toISOString().split('T')[0]
   });
+
+  // Lesson Form
+  const [lessonDate, setLessonDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Edit Mode
   const [editMode, setEditMode] = useState(false);
@@ -31,7 +34,8 @@ export default function StudentProfile({ studentId, onBack }) {
           studentPhone: data.student_phone || '',
           parentPhone: data.parent_phone || '',
           contractNumber: data.contract_number || '',
-          teacherId: data.teacher_id || ''
+          teacherId: data.teacher_id || '',
+          status: data.status || 'Active'
         });
 
         if (currentUser?.role === 'ADMIN') {
@@ -72,15 +76,34 @@ export default function StudentProfile({ studentId, onBack }) {
       return;
     }
     if (window.electronAPI) {
-      const today = new Date().toISOString().split('T')[0];
-      await window.electronAPI.completeLesson({
-        studentId,
-        packageId: activePackage.id,
-        date: today,
-        startTime: '18:00',
-        endTime: '19:00',
-        comment: ''
-      });
+      try {
+        await window.electronAPI.completeLesson({
+          studentId,
+          packageId: activePackage.id,
+          date: lessonDate,
+          startTime: '18:00', // Could be dynamic if needed
+          endTime: '19:00',
+          comment: ''
+        });
+        loadData();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  }
+
+  async function handleDeleteLesson(lessonId) {
+    if (window.confirm("Are you sure you want to delete this lesson?")) {
+      if (window.electronAPI) {
+        await window.electronAPI.deleteLesson(lessonId);
+        loadData();
+      }
+    }
+  }
+
+  async function handleSendInvoice(packageId) {
+    if (window.electronAPI) {
+      await window.electronAPI.markInvoiceSent(packageId);
       loadData();
     }
   }
@@ -95,7 +118,8 @@ export default function StudentProfile({ studentId, onBack }) {
         studentPhone: editData.studentPhone,
         parentPhone: editData.parentPhone,
         contractNumber: editData.contractNumber,
-        teacherId: editData.teacherId
+        teacherId: editData.teacherId,
+        status: editData.status
       });
       setEditMode(false);
       loadData();
@@ -105,7 +129,8 @@ export default function StudentProfile({ studentId, onBack }) {
   if (loading) return <div>Loading...</div>;
   if (!student) return <div>Student not found or access denied.</div>;
 
-  const activePackage = student.packages.find(p => p.status === 'Active' || p.status === 'PAYMENT_REQUIRED');
+  // Active or INVOICE_SENT or PAYMENT_REQUIRED
+  const activePackage = student.packages.find(p => p.status === 'Active' || p.status === 'PAYMENT_REQUIRED' || p.status === 'INVOICE_SENT');
   const isAdmin = currentUser?.role === 'ADMIN';
 
   return (
@@ -143,6 +168,13 @@ export default function StudentProfile({ studentId, onBack }) {
                   <input type="text" className="form-control" value={editData.lastName} onChange={e => setEditData({...editData, lastName: e.target.value})} />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Status</label>
+                  <select className="form-control" value={editData.status} onChange={e => setEditData({...editData, status: e.target.value})}>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+                <div className="form-group">
                   <label className="form-label">Level</label>
                   <input type="text" className="form-control" value={editData.level} onChange={e => setEditData({...editData, level: e.target.value})} />
                 </div>
@@ -151,19 +183,19 @@ export default function StudentProfile({ studentId, onBack }) {
                   <input type="text" className="form-control" value={editData.contractNumber} onChange={e => setEditData({...editData, contractNumber: e.target.value})} />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Teacher</label>
+                  <select className="form-control" value={editData.teacherId} onChange={e => setEditData({...editData, teacherId: e.target.value})}>
+                    <option value="">No Teacher</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
                   <label className="form-label">Student Phone</label>
                   <input type="text" className="form-control" value={editData.studentPhone} onChange={e => setEditData({...editData, studentPhone: e.target.value})} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Parent Phone</label>
                   <input type="text" className="form-control" value={editData.parentPhone} onChange={e => setEditData({...editData, parentPhone: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Teacher</label>
-                  <select className="form-control" value={editData.teacherId} onChange={e => setEditData({...editData, teacherId: e.target.value})}>
-                    <option value="">No Teacher</option>
-                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
@@ -177,7 +209,7 @@ export default function StudentProfile({ studentId, onBack }) {
                 <h2>Payment Cycle Information</h2>
                 {isAdmin && (
                   <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setShowPaymentForm(!showPaymentForm)}>
-                    <CreditCard size={14} /> {showPaymentForm ? 'Cancel' : 'Add Payment'}
+                    <CreditCard size={14} /> {showPaymentForm ? 'Cancel' : 'Add Payment (Start New Cycle)'}
                   </button>
                 )}
               </div>
@@ -214,17 +246,35 @@ export default function StudentProfile({ studentId, onBack }) {
                   <div>
                     <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Status</div>
                     <div>
-                      {activePackage.status === 'PAYMENT_REQUIRED' ? (
-                        <span className="badge badge-danger">Payment Required</span>
-                      ) : (
-                        <span className="badge badge-success">Active</span>
-                      )}
+                      {activePackage.status === 'PAYMENT_REQUIRED' && <span className="badge badge-danger">Payment Required</span>}
+                      {activePackage.status === 'INVOICE_SENT' && <span className="badge badge-warning">Invoice Sent</span>}
+                      {activePackage.status === 'Active' && <span className="badge badge-success">Active</span>}
                     </div>
                   </div>
-                  <div style={{ gridColumn: 'span 3', marginTop: 16 }}>
-                    <button className="btn btn-secondary" onClick={handleCompleteLesson} disabled={activePackage.status === 'PAYMENT_REQUIRED'}>
-                      Mark Lesson as Completed
-                    </button>
+                  
+                  <div style={{ gridColumn: 'span 3', marginTop: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
+                    {activePackage.status === 'Active' ? (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px 16px', borderRadius: 8, border: '1px solid var(--panel-border)' }}>
+                        <input 
+                          type="date" 
+                          className="form-control" 
+                          style={{ marginBottom: 0 }}
+                          value={lessonDate}
+                          onChange={(e) => setLessonDate(e.target.value)}
+                        />
+                        <button className="btn btn-secondary" onClick={handleCompleteLesson}>
+                          Mark Lesson
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-muted">Cycle is complete. Waiting for new payment.</div>
+                    )}
+
+                    {isAdmin && activePackage.status === 'PAYMENT_REQUIRED' && (
+                      <button className="btn btn-secondary" onClick={() => handleSendInvoice(activePackage.id)}>
+                        <Send size={16} style={{ marginRight: 8 }} /> Mark as Invoice Sent
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -274,6 +324,13 @@ export default function StudentProfile({ studentId, onBack }) {
                     <tr key={l.id}>
                       <td>{l.date}</td>
                       <td><span className="badge">{l.status}</span></td>
+                      {isAdmin && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button className="btn" style={{ padding: 4, background: 'transparent' }} onClick={() => handleDeleteLesson(l.id)}>
+                            <Trash2 size={16} color="var(--danger-color)" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

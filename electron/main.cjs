@@ -33,6 +33,9 @@ function createWindow() {
 app.whenReady().then(() => {
   initDb();
   
+  // Bypass login for now (auto-login as admin)
+  currentUser = repo.login('admin', 'admin');
+  
   // Basic native notification check on start
   const notifications = repo.getNotifications();
   const unreadPayments = notifications.filter(n => n.status === 'UNREAD' && n.type === 'PAYMENT_REQUIRED').length;
@@ -127,6 +130,14 @@ ipcMain.handle('create-package', (event, data) => {
 ipcMain.handle('complete-lesson', (event, {studentId, packageId, date, startTime, endTime, comment}) => {
   checkAuth();
   return repo.completeLesson(studentId, packageId, date, startTime, endTime, comment, currentUser.id, currentUser.role);
+});
+ipcMain.handle('delete-lesson', (event, lessonId) => {
+  checkAdmin();
+  return repo.deleteLesson(lessonId, currentUser.role);
+});
+ipcMain.handle('mark-invoice-sent', (event, packageId) => {
+  checkAdmin();
+  return repo.markInvoiceSent(packageId, currentUser.role);
 });
 ipcMain.handle('calculate-next-payment', (event, studentId) => {
   checkAuth();
